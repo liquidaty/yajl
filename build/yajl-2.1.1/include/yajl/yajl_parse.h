@@ -93,8 +93,7 @@ extern "C" {
 
         int (* yajl_start_array)(void * ctx);
         int (* yajl_end_array)(void * ctx);
-        int (*yajl_helper_error)(void * ctx, const char *buf,
-                                 size_t bufLen, int err_no);
+        int (* yajl_error)(void * ctx, const unsigned char *buf, unsigned len, int err_no);
     } yajl_callbacks;
 
     /** allocate a parser handle
@@ -109,6 +108,17 @@ extern "C" {
     YAJL_API yajl_handle yajl_alloc(const yajl_callbacks * callbacks,
                                     yajl_alloc_funcs * afs,
                                     void * ctx);
+
+    /** swap parser callback routines. returns the old callback structure
+     *  \param hand - a handle to the json parser allocated with yajl_alloc
+     *  \param callbacks  a yajl callbacks structure specifying the
+     *                    functions to call when different JSON entities
+     *                    are encountered in the input text.
+     */
+    YAJL_API const yajl_callbacks * yajl_swap_callbacks(yajl_handle handle,
+                                                        const yajl_callbacks * callbacks,
+                                                        void *new_ctx);
+
 
 
     /** configuration parameters for the parser, these may be passed to
