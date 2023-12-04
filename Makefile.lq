@@ -1,0 +1,38 @@
+# Makefile for use with GNU make
+
+THIS_MAKEFILE_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+
+CONFIGFILE ?= config.mk
+$(info Using config file ${CONFIGFILE})
+CONFIGFILEPATH=$(shell ls ${CONFIGFILE} >/dev/null 2>/dev/null && realpath ${CONFIGFILE})
+ifeq ($(CONFIGFILEPATH),)
+  $(error Config file ${CONFIGFILE} not found)
+endif
+
+include ${CONFIGFILE}
+
+CCBN=$(shell basename ${CC})
+THIS_LIB_BASE=$(shell cd .. && pwd)
+INCLUDE_DIR=${THIS_LIB_BASE}/include
+BUILD_DIR=${THIS_LIB_BASE}/build/${BUILD_SUBDIR}/${CCBN}
+
+YAJL_LIB_NAME=libyajl_s.a
+YAJL_LIB_INSTALLED=${PREFIX}/lib/${YAJL_LIB_NAME}
+YAJL_LIB=${BUILD_DIR}/${YAJL_LIB_NAME}
+
+YAJL_OBJ:=yajl yajl_alloc yajl_buf yajl_encode yajl_gen yajl_lex yajl_parser yajl_tree yajl_version
+YAJL_OBJ:=$(addprefix ${BUILD_DIR}/,$(addsuffix .o,${YAJL_OBJ}))
+
+install-lib: ${YAJL_LIB}
+	@cp -p $< ${YAJL_LIB_INSTALLED}
+
+${YAJL_OBJ}: ${BUILD_DIR}/%.o : src/%.c
+	@mkdir -p `dirname "$@"`
+	${CC} ${CFLAGS} -I`pwd`/include -c src/$*.c -o $@
+
+${YAJL_LIB}: ${YAJL_OBJ}
+	$(AR) rcv $@ $^
+	$(RANLIB) $@
+	$(AR) -t $@ # check it is there
+	@echo Built $@
+
