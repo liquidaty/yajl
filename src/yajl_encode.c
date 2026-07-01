@@ -144,16 +144,22 @@ void yajl_string_decode(yajl_buf buf, const unsigned char * str,
                             unsigned int surrogate = 0;
                             hexToDigit(&surrogate, str + end + 2);
                             codepoint =
-                                (((codepoint & 0x3F) << 10) | 
-                                 ((((codepoint >> 6) & 0xF) + 1) << 16) | 
+                                (((codepoint & 0x3F) << 10) |
+                                 ((((codepoint >> 6) & 0xF) + 1) << 16) |
                                  (surrogate & 0x3FF));
                             end += 5;
                         } else {
                             unescaped = "?";
                             break;
                         }
+                    } else if ((codepoint & 0xFC00) == 0xDC00) {
+                        /* lone low surrogate: not a scalar value -- encoding it
+                         * would emit an invalid UTF-8 surrogate sequence, so
+                         * replace it (as a lone high surrogate already is). */
+                        unescaped = "?";
+                        break;
                     }
-                    
+
                     Utf32toUtf8(codepoint, utf8Buf);
                     unescaped = utf8Buf;
 

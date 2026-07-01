@@ -197,28 +197,42 @@ yajl_lex_utf8_char(yajl_lexer lexer, const unsigned char * jsonText,
                    size_t jsonTextLen, size_t * offset,
                    unsigned char curChar)
 {
+    /* RFC 3629 well-formedness: reject overlong forms, UTF-16 surrogates
+     * (U+D800..U+DFFF) and code points above U+10FFFF -- not only malformed
+     * continuation bytes. The lead-byte ranges and the first-continuation-byte
+     * bounds below mirror yatl_validate_utf8 so both converter directions agree. */
     if (curChar <= 0x7f) {
         /* single byte */
         return yajl_tok_string;
-    } else if ((curChar >> 5) == 0x6) {
-        /* two byte */
+    } else if (curChar >= 0xc2 && curChar <= 0xdf) {
+        /* two byte (0xc0/0xc1 would be overlong) */
         UTF8_CHECK_EOF;
         curChar = readChar(lexer, jsonText, offset);
         if ((curChar >> 6) == 0x2) return yajl_tok_string;
-    } else if ((curChar >> 4) == 0x0e) {
+    } else if (curChar >= 0xe0 && curChar <= 0xef) {
         /* three byte */
+        unsigned char lead = curChar;
         UTF8_CHECK_EOF;
         curChar = readChar(lexer, jsonText, offset);
-        if ((curChar >> 6) == 0x2) {
+        /* 0xe0: 2nd byte 0xa0..0xbf (else overlong); 0xed: 0x80..0x9f (else
+         * surrogate) */
+        if ((curChar >> 6) == 0x2 &&
+            !(lead == 0xe0 && curChar < 0xa0) &&
+            !(lead == 0xed && curChar > 0x9f)) {
             UTF8_CHECK_EOF;
             curChar = readChar(lexer, jsonText, offset);
             if ((curChar >> 6) == 0x2) return yajl_tok_string;
         }
-    } else if ((curChar >> 3) == 0x1e) {
-        /* four byte */
+    } else if (curChar >= 0xf0 && curChar <= 0xf4) {
+        /* four byte (0xf5..0xff would exceed U+10FFFF) */
+        unsigned char lead = curChar;
         UTF8_CHECK_EOF;
         curChar = readChar(lexer, jsonText, offset);
-        if ((curChar >> 6) == 0x2) {
+        /* 0xf0: 2nd byte 0x90..0xbf (else overlong); 0xf4: 0x80..0x8f (else
+         * beyond U+10FFFF) */
+        if ((curChar >> 6) == 0x2 &&
+            !(lead == 0xf0 && curChar < 0x90) &&
+            !(lead == 0xf4 && curChar > 0x8f)) {
             UTF8_CHECK_EOF;
             curChar = readChar(lexer, jsonText, offset);
             if ((curChar >> 6) == 0x2) {
